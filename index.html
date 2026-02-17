@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit Ninja - Hand Tracking</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Webcam feed (hidden, used for tracking) -->
+        <video id="webcam" autoplay playsinline></video>
+
+        <!-- Game canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Overlay (in-game HUD) -->
+        <div id="ui-overlay" class="hidden">
+            <div id="score-display">
+                <div id="score-icon">&#127823;</div>
+                <span id="score">0</span>
+            </div>
+            <div id="best-score-display">
+                BEST: <span id="best-score">0</span>
+            </div>
+
+            <!-- Mode indicator -->
+            <div id="mode-indicator"></div>
+
+            <!-- Level indicator (Classic/Arcade) -->
+            <div id="level-indicator" class="hidden">
+                <div id="level-info">
+                    <span id="level-label">LEVEL</span>
+                    <span id="level-number">1</span>
+                </div>
+                <div id="chapter-name-hud"></div>
+                <div id="level-progress-container">
+                    <div id="level-progress-bar">
+                        <div id="level-progress-fill"></div>
+                    </div>
+                    <span id="wave-counter">1/3</span>
+                </div>
+            </div>
+
+            <!-- Lives display (Classic) -->
+            <div id="lives-display" class="hidden">
+                <span class="life-x" id="life-1"></span>
+                <span class="life-x" id="life-2"></span>
+                <span class="life-x" id="life-3"></span>
+            </div>
+
+            <!-- Timer bar (Arcade/Zen) -->
+            <div id="timer-container" class="hidden">
+                <div id="timer-bar">
+                    <div id="timer-fill"></div>
+                </div>
+                <span id="timer-text">60</span>
+            </div>
+
+            <!-- Active powerup indicators (Arcade) -->
+            <div id="powerup-display" class="hidden">
+                <div class="powerup-pill" id="powerup-freeze">
+                    <span class="powerup-icon">&#10052;</span>
+                    <span class="powerup-timer">0s</span>
+                </div>
+                <div class="powerup-pill" id="powerup-frenzy">
+                    <span class="powerup-icon">&#9889;</span>
+                    <span class="powerup-timer">0s</span>
+                </div>
+                <div class="powerup-pill" id="powerup-double">
+                    <span class="powerup-icon">&#215;2</span>
+                    <span class="powerup-timer">0s</span>
+                </div>
+            </div>
+
+            <!-- Combo display -->
+            <div id="combo-display" class="hidden">
+                <span id="combo">x2</span>
+            </div>
+        </div>
+
+        <!-- ==================== MAIN MENU ==================== -->
+        <div id="main-menu">
+            <div id="title-container">
+                <div id="title-fruit">FRUIT</div>
+                <div id="title-ninja">NINJA</div>
+                <div id="title-slash"></div>
+            </div>
+            <p id="subtitle">Hand Tracking Edition</p>
+
+            <!-- Tab navigation -->
+            <div id="menu-tabs">
+                <button class="tab-btn active" data-tab="play">&#9876; PLAY</button>
+                <button class="tab-btn" data-tab="settings">&#9881; SETTINGS</button>
+            </div>
+
+            <!-- PLAY Tab -->
+            <div id="tab-play" class="tab-content active">
+                <div id="mode-cards">
+                    <div class="mode-card" data-mode="classic">
+                        <div class="mode-icon">&#9876;</div>
+                        <div class="mode-name">Classic</div>
+                        <div class="mode-desc">3 lives. Miss a fruit = lose a life. Bombs = game over.</div>
+                        <div class="mode-best">BEST: <span class="mode-best-score" id="best-classic">0</span></div>
+                    </div>
+                    <div class="mode-card" data-mode="arcade">
+                        <div class="mode-icon">&#9201;</div>
+                        <div class="mode-name">Arcade</div>
+                        <div class="mode-desc">60 seconds. Special fruits &amp; powerups. Bombs = -10 pts.</div>
+                        <div class="mode-best">BEST: <span class="mode-best-score" id="best-arcade">0</span></div>
+                    </div>
+                    <div class="mode-card" data-mode="zen">
+                        <div class="mode-icon">&#9775;</div>
+                        <div class="mode-name">Zen</div>
+                        <div class="mode-desc">90 seconds of peace. No bombs. No pressure. Just slice.</div>
+                        <div class="mode-best">BEST: <span class="mode-best-score" id="best-zen">0</span></div>
+                    </div>
+                </div>
+                <p class="instructions">Show your hand to the camera and swipe to slice!</p>
+            </div>
+
+            <!-- SETTINGS Tab -->
+            <div id="tab-settings" class="tab-content">
+                <div id="settings-panel">
+                    <!-- Tracking Sensitivity -->
+                    <div class="setting-row">
+                        <div class="setting-label">Tracking Sensitivity</div>
+                        <div class="setting-options" data-setting="sensitivity">
+                            <button class="setting-btn" data-value="low">Low</button>
+                            <button class="setting-btn active" data-value="medium">Medium</button>
+                            <button class="setting-btn" data-value="high">High</button>
+                        </div>
+                    </div>
+
+                    <!-- Camera Mirror -->
+                    <div class="setting-row">
+                        <div class="setting-label">Camera Mirror</div>
+                        <div class="setting-toggle">
+                            <button class="toggle-btn active" id="mirror-toggle" data-setting="cameraMirror">ON</button>
+                        </div>
+                    </div>
+
+                    <!-- Difficulty -->
+                    <div class="setting-row">
+                        <div class="setting-label">Difficulty</div>
+                        <div class="setting-options" data-setting="difficulty">
+                            <button class="setting-btn" data-value="easy">Easy</button>
+                            <button class="setting-btn active" data-value="normal">Normal</button>
+                            <button class="setting-btn" data-value="hard">Hard</button>
+                        </div>
+                    </div>
+
+                    <!-- Reset Best Scores -->
+                    <div class="setting-row">
+                        <div class="setting-label">Best Scores</div>
+                        <button class="reset-btn" id="reset-scores-btn">RESET ALL SCORES</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== GAME OVER SCREEN ==================== -->
+        <div id="gameover-screen" class="hidden">
+            <div id="gameover-slash"></div>
+            <h1 id="gameover-title">GAME OVER</h1>
+            <div id="gameover-mode-label"></div>
+            <div id="gameover-scores">
+                <div class="go-score-row">
+                    <span class="go-label">SCORE</span>
+                    <span class="go-value" id="final-score">0</span>
+                </div>
+                <div class="go-score-row">
+                    <span class="go-label">BEST</span>
+                    <span class="go-value" id="final-best">0</span>
+                </div>
+                <div class="go-score-row" id="final-level-row" style="display:none;">
+                    <span class="go-label">LEVEL</span>
+                    <span class="go-value" id="final-level">1</span>
+                </div>
+                <div class="go-score-row" id="final-chapter-row" style="display:none;">
+                    <span class="go-label">CHAPTER</span>
+                    <span class="go-value" id="final-chapter">I</span>
+                </div>
+            </div>
+            <div id="gameover-buttons">
+                <button id="restart-btn">
+                    <span class="btn-icon">&#9876;</span> PLAY AGAIN
+                </button>
+                <button id="menu-btn" class="secondary-btn">
+                    <span class="btn-icon">&#9776;</span> MENU
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== LEVEL UP OVERLAY ==================== -->
+        <div id="levelup-overlay" class="hidden">
+            <div id="levelup-text">LEVEL <span id="levelup-number">2</span></div>
+        </div>
+
+        <!-- ==================== CHAPTER TRANSITION OVERLAY ==================== -->
+        <div id="chapter-overlay" class="hidden">
+            <div id="chapter-transition-content">
+                <div id="chapter-number-label">CHAPTER I</div>
+                <div id="chapter-name-display">The Dojo</div>
+                <div id="chapter-slash-line"></div>
+                <div id="chapter-tagline">Begin your training</div>
+            </div>
+        </div>
+
+        <!-- ==================== RESET CONFIRM DIALOG ==================== -->
+        <div id="reset-confirm" class="hidden">
+            <div id="reset-dialog">
+                <p>Reset all best scores?</p>
+                <div class="dialog-buttons">
+                    <button id="reset-yes" class="dialog-btn danger">YES, RESET</button>
+                    <button id="reset-no" class="dialog-btn">CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== LOADING ==================== -->
+        <div id="loading">
+            <div class="loading-content">
+                <div class="katana-loader"></div>
+                <p>Sharpening the blade...</p>
+                <p class="loading-sub">Initializing hand tracking</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <!-- Game Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/fruit.js"></script>
+    <script src="js/effects.js"></script>
+    <script src="js/handTracking.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>
