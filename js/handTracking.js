@@ -1,4 +1,4 @@
-// Hand tracking using MediaPipe Hands
+// Hand tracking using MediaPipe Hands (GPU-accelerated via WebGL internally)
 
 class HandTracker {
     constructor(videoElement, onResultsCallback) {
@@ -29,12 +29,12 @@ class HandTracker {
         // Hand persistence - reduced to prevent ghost slices
         this.lastValidLandmarks = [];
         this.framesWithoutHands = 0;
-        this.maxPersistenceFrames = 4; // Reduced from 8 to prevent ghost slices
+        this.maxPersistenceFrames = 4;
 
         // Position smoothing (reduce jitter) - higher = more responsive
         this.smoothingFactor = 0.7;
 
-        // Frame skipping - process every frame for better fast-movement detection
+        // Frame tracking
         this.frameCount = 0;
         this.processEveryN = 1;
         this.isProcessing = false;
@@ -51,9 +51,9 @@ class HandTracker {
 
                 this.hands.setOptions({
                     maxNumHands: 1,
-                    modelComplexity: 0,
+                    modelComplexity: 0,            // Lite model — ~2x faster than full
                     minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
+                    minTrackingConfidence: 0.3      // Lower = re-detects less often = faster
                 });
 
                 this.hands.onResults((results) => this.onResults(results));
@@ -70,8 +70,8 @@ class HandTracker {
                         }
                         this.isProcessing = false;
                     },
-                    width: 640,
-                    height: 480,
+                    width: 480,
+                    height: 360,
                     facingMode: 'user'
                 });
 
@@ -110,7 +110,6 @@ class HandTracker {
             if (this.framesWithoutHands <= this.maxPersistenceFrames && this.lastValidLandmarks.length > 0) {
                 this.allHandsLandmarks = this.lastValidLandmarks;
             } else {
-                // Persistence expired - clear everything
                 this.allHandsLandmarks = [];
                 this.lastValidLandmarks = [];
             }
@@ -167,7 +166,6 @@ class HandTracker {
         }
 
         // Only send callback for real detections (not persisted ones)
-        // This prevents ghost slices when hand leaves camera
         if (this.framesWithoutHands > 0) return;
 
         if (this.onResultsCallback) {
@@ -198,7 +196,6 @@ class HandTracker {
         };
     }
 
-    // Draw minimal hand indicator - just fingertips, no skeleton (cleaner like official)
     drawLandmarks(ctx) {
         if (!this.allHandsLandmarks || this.allHandsLandmarks.length === 0) return;
 
@@ -214,11 +211,10 @@ class HandTracker {
             };
         }
 
-        // Draw subtle palm connections (very faint, just enough to see hand)
         const connections = [
-            [0,5],[5,9],[9,13],[13,17],[0,17], // Palm outline
-            [5,6],[6,7],[7,8],   // Index
-            [9,10],[10,11],[11,12], // Middle
+            [0,5],[5,9],[9,13],[13,17],[0,17],
+            [5,6],[6,7],[7,8],
+            [9,10],[10,11],[11,12],
         ];
 
         ctx.beginPath();
@@ -231,7 +227,6 @@ class HandTracker {
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // Draw fingertips with blade glow
         const tipIndices = [4, 8, 12, 16, 20];
         for (let f = 0; f < 5; f++) {
             const idx = tipIndices[f];
@@ -245,14 +240,12 @@ class HandTracker {
             }
 
             if (isMoving) {
-                // Outer blade glow
                 ctx.beginPath();
                 ctx.arc(pts[idx].x, pts[idx].y, 16, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(150, 200, 255, 0.2)';
                 ctx.fill();
             }
 
-            // Fingertip dot
             ctx.beginPath();
             ctx.arc(pts[idx].x, pts[idx].y, isMoving ? 7 : 4, 0, Math.PI * 2);
             ctx.fillStyle = isMoving ? 'rgba(200, 230, 255, 0.8)' : 'rgba(255, 255, 255, 0.3)';

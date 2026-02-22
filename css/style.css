@@ -56,6 +56,21 @@ body {
     pointer-events: none;
 }
 
+/* ========== CAMERA MONITOR (PiP) ========== */
+#camera-monitor {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    width: 200px;
+    height: 150px;
+    z-index: 10;
+    border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+    background: #000;
+    pointer-events: none;
+}
+
 /* ========== GAME CANVAS ========== */
 #game-canvas {
     position: absolute;

@@ -7,6 +7,12 @@ class FruitNinjaGame {
         this.ctx = this.canvas.getContext('2d', { desynchronized: true });
         this.video = document.getElementById('webcam');
 
+        // Camera monitor (PiP)
+        this.camMonitor = document.getElementById('camera-monitor');
+        this.camCtx = this.camMonitor.getContext('2d');
+        this.camMonitor.width = 200;
+        this.camMonitor.height = 150;
+
         // Screens
         this.loadingScreen = document.getElementById('loading');
         this.mainMenu = document.getElementById('main-menu');
@@ -1124,6 +1130,61 @@ class FruitNinjaGame {
 
         if (this.handTracker) {
             this.handTracker.drawLandmarks(ctx);
+        }
+
+        // Draw camera monitor (PiP) — video feed + hand skeleton
+        this.drawCameraMonitor();
+    }
+
+    drawCameraMonitor() {
+        const mc = this.camCtx;
+        const mw = this.camMonitor.width;
+        const mh = this.camMonitor.height;
+
+        // Draw mirrored video feed
+        mc.save();
+        mc.translate(mw, 0);
+        mc.scale(-1, 1);
+        mc.drawImage(this.video, 0, 0, mw, mh);
+        mc.restore();
+
+        // Draw hand skeleton overlay
+        if (!this.handTracker || !this.handTracker.allHandsLandmarks || this.handTracker.allHandsLandmarks.length === 0) return;
+
+        const landmarks = this.handTracker.allHandsLandmarks[0];
+        const pts = [];
+        for (let i = 0; i < 21; i++) {
+            pts[i] = {
+                x: (1 - landmarks[i].x) * mw,
+                y: landmarks[i].y * mh
+            };
+        }
+
+        // Connections
+        const connections = [
+            [0,1],[1,2],[2,3],[3,4],       // Thumb
+            [0,5],[5,6],[6,7],[7,8],       // Index
+            [5,9],[9,10],[10,11],[11,12],   // Middle
+            [9,13],[13,14],[14,15],[15,16], // Ring
+            [13,17],[17,18],[18,19],[19,20],// Pinky
+            [0,17]                          // Palm base
+        ];
+
+        mc.beginPath();
+        for (const [a, b] of connections) {
+            mc.moveTo(pts[a].x, pts[a].y);
+            mc.lineTo(pts[b].x, pts[b].y);
+        }
+        mc.strokeStyle = 'rgba(0, 255, 128, 0.7)';
+        mc.lineWidth = 1.5;
+        mc.stroke();
+
+        // Joints
+        for (let i = 0; i < 21; i++) {
+            mc.beginPath();
+            mc.arc(pts[i].x, pts[i].y, 2.5, 0, Math.PI * 2);
+            mc.fillStyle = [4,8,12,16,20].includes(i) ? '#00ff80' : 'rgba(255,255,255,0.8)';
+            mc.fill();
         }
     }
 
