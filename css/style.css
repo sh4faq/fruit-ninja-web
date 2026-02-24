@@ -25,9 +25,9 @@ body {
 #parallax-bg {
     position: absolute;
     /* Oversized so it has room to shift without showing edges */
-    top: -40px; left: -40px;
-    width: calc(100% + 80px);
-    height: calc(100% + 80px);
+    top: -60px; left: -60px;
+    width: calc(100% + 120px);
+    height: calc(100% + 120px);
     z-index: 0;
     pointer-events: none;
     will-change: transform;
