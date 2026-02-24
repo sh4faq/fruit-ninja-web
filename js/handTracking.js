@@ -46,8 +46,8 @@ class HandTracker {
         this.isFaceProcessing = false;
         // Head offset: -1 to 1 (0 = centered). Used by game for parallax.
         this.headOffset = { x: 0, y: 0 };
-        // Smoothing for head — at ~6fps detection, 0.25 gives smooth but responsive feel
-        this.headSmoothing = 0.25;
+        // Smoothing for head — 0.35 is responsive enough to feel alive
+        this.headSmoothing = 0.35;
     }
 
     async initialize() {

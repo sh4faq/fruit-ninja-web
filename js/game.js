@@ -16,13 +16,13 @@ class FruitNinjaGame {
         // Parallax background element
         this.parallaxBg = document.getElementById('parallax-bg');
 
-        // 3D box parallax settings
+        // 3D deep box parallax settings
         this.parallax = {
-            maxShift: 40,          // Max pixels the inner box shifts with head
-            boxDepth: 55,          // How deep the box walls are (pixels)
+            maxShift: 55,          // Max pixels the inner box shifts with head
+            boxDepth: 110,         // DEEP box walls
             bgMultiplier: 1.0,     // Background layer (follows head)
-            midMultiplier: 0.6,    // Midground — fruits/bombs (opposite)
-            fgMultiplier: 0.2,     // Foreground — effects (slight opposite)
+            midMultiplier: 0.7,    // Midground — fruits/bombs (opposite)
+            fgMultiplier: 0.25,    // Foreground — effects (slight opposite)
         };
 
         // Screens
@@ -1190,73 +1190,194 @@ class FruitNinjaGame {
         this.drawCameraMonitor();
     }
 
-    // ==================== 3D PERSPECTIVE BOX ====================
+    // ==================== DEEP 3D BOX ====================
     drawBox3D(ctx, w, h, inner) {
-        // Outer corners = screen edges (the "opening" of the box)
-        // Inner corners = the "back wall" (shifted by head position)
-        // Each wall is a trapezoid connecting outer edge to inner edge
+        // Helper: interpolate a point along the depth of a wall
+        // t=0 is outer (screen edge), t=1 is inner (back wall)
+        const lerp = (a, b, t) => a + (b - a) * t;
 
-        // === LEFT WALL ===
+        // ============ LEFT WALL (vertical wood planks) ============
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(inner.l, inner.t);
+        ctx.lineTo(inner.l, inner.b);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.clip();
+
+        // Base fill — dark wood gradient (light at opening → dark at back)
         let grad = ctx.createLinearGradient(0, 0, inner.l, 0);
-        grad.addColorStop(0, 'rgba(50, 32, 15, 0.95)');   // opening edge (lighter)
-        grad.addColorStop(0.4, 'rgba(30, 18, 8, 0.95)');
-        grad.addColorStop(1, 'rgba(8, 5, 2, 0.98)');      // deep inside (dark)
+        grad.addColorStop(0, '#3d2510');
+        grad.addColorStop(0.3, '#2a180a');
+        grad.addColorStop(0.7, '#1a0f06');
+        grad.addColorStop(1, '#0a0604');
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);                // outer top-left
-        ctx.lineTo(inner.l, inner.t);    // inner top-left
-        ctx.lineTo(inner.l, inner.b);    // inner bottom-left
-        ctx.lineTo(0, h);                // outer bottom-left
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillRect(0, 0, inner.l + 1, h);
 
-        // === RIGHT WALL ===
+        // Wood plank lines (horizontal boards on left wall)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.lineWidth = 1;
+        const plankH = 40;
+        for (let py = plankH; py < h; py += plankH) {
+            const t = py / h;
+            const x0 = 0;
+            const y0 = py;
+            const x1 = inner.l;
+            const y1 = lerp(inner.t, inner.b, t);
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.stroke();
+        }
+
+        // Subtle wood grain (vertical streaks)
+        for (let i = 0; i < 5; i++) {
+            const t = (i + 0.5) / 5;
+            const x = lerp(0, inner.l, t);
+            ctx.strokeStyle = `rgba(60, 38, 18, ${0.15 - t * 0.1})`;
+            ctx.beginPath();
+            ctx.moveTo(x, lerp(0, inner.t, t));
+            ctx.lineTo(x, lerp(h, inner.b, t));
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // ============ RIGHT WALL (vertical wood planks) ============
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(w, 0);
+        ctx.lineTo(inner.r, inner.t);
+        ctx.lineTo(inner.r, inner.b);
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.clip();
+
         grad = ctx.createLinearGradient(w, 0, inner.r, 0);
-        grad.addColorStop(0, 'rgba(50, 32, 15, 0.95)');
-        grad.addColorStop(0.4, 'rgba(30, 18, 8, 0.95)');
-        grad.addColorStop(1, 'rgba(8, 5, 2, 0.98)');
+        grad.addColorStop(0, '#3d2510');
+        grad.addColorStop(0.3, '#2a180a');
+        grad.addColorStop(0.7, '#1a0f06');
+        grad.addColorStop(1, '#0a0604');
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(w, 0);               // outer top-right
-        ctx.lineTo(inner.r, inner.t);   // inner top-right
-        ctx.lineTo(inner.r, inner.b);   // inner bottom-right
-        ctx.lineTo(w, h);               // outer bottom-right
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillRect(inner.r - 1, 0, w - inner.r + 1, h);
 
-        // === TOP WALL ===
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+        ctx.lineWidth = 1;
+        for (let py = plankH; py < h; py += plankH) {
+            const t = py / h;
+            ctx.beginPath();
+            ctx.moveTo(w, py);
+            ctx.lineTo(inner.r, lerp(inner.t, inner.b, t));
+            ctx.stroke();
+        }
+
+        for (let i = 0; i < 5; i++) {
+            const t = (i + 0.5) / 5;
+            const x = lerp(w, inner.r, t);
+            ctx.strokeStyle = `rgba(60, 38, 18, ${0.15 - t * 0.1})`;
+            ctx.beginPath();
+            ctx.moveTo(x, lerp(0, inner.t, t));
+            ctx.lineTo(x, lerp(h, inner.b, t));
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // ============ TOP WALL (ceiling beams) ============
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(inner.l, inner.t);
+        ctx.lineTo(inner.r, inner.t);
+        ctx.lineTo(w, 0);
+        ctx.closePath();
+        ctx.clip();
+
         grad = ctx.createLinearGradient(0, 0, 0, inner.t);
-        grad.addColorStop(0, 'rgba(55, 35, 18, 0.95)');   // slightly lighter (lit from above)
-        grad.addColorStop(0.4, 'rgba(32, 20, 10, 0.95)');
-        grad.addColorStop(1, 'rgba(8, 5, 2, 0.98)');
+        grad.addColorStop(0, '#352010');
+        grad.addColorStop(0.3, '#241508');
+        grad.addColorStop(0.7, '#160d05');
+        grad.addColorStop(1, '#080503');
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);               // outer top-left
-        ctx.lineTo(inner.l, inner.t);   // inner top-left
-        ctx.lineTo(inner.r, inner.t);   // inner top-right
-        ctx.lineTo(w, 0);               // outer top-right
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillRect(0, 0, w, inner.t + 1);
 
-        // === BOTTOM WALL ===
+        // Beam lines (vertical boards on ceiling receding into depth)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        const beamW = 60;
+        for (let px = beamW; px < w; px += beamW) {
+            const t = px / w;
+            ctx.beginPath();
+            ctx.moveTo(px, 0);
+            ctx.lineTo(lerp(inner.l, inner.r, t), inner.t);
+            ctx.stroke();
+        }
+
+        // Grain
+        for (let i = 0; i < 4; i++) {
+            const t = (i + 0.5) / 4;
+            const y = lerp(0, inner.t, t);
+            ctx.strokeStyle = `rgba(55, 35, 18, ${0.12 - t * 0.08})`;
+            ctx.beginPath();
+            ctx.moveTo(lerp(0, inner.l, t), y);
+            ctx.lineTo(lerp(w, inner.r, t), y);
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        // ============ BOTTOM WALL (wooden floor) ============
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        ctx.lineTo(inner.l, inner.b);
+        ctx.lineTo(inner.r, inner.b);
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.clip();
+
+        // Floor is slightly warmer/brighter
         grad = ctx.createLinearGradient(0, h, 0, inner.b);
-        grad.addColorStop(0, 'rgba(40, 25, 12, 0.95)');   // slightly darker (shadow)
-        grad.addColorStop(0.4, 'rgba(25, 15, 7, 0.95)');
-        grad.addColorStop(1, 'rgba(8, 5, 2, 0.98)');
+        grad.addColorStop(0, '#4a2f15');
+        grad.addColorStop(0.2, '#3d2510');
+        grad.addColorStop(0.5, '#2a180a');
+        grad.addColorStop(1, '#0c0805');
         ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(0, h);               // outer bottom-left
-        ctx.lineTo(inner.l, inner.b);   // inner bottom-left
-        ctx.lineTo(inner.r, inner.b);   // inner bottom-right
-        ctx.lineTo(w, h);               // outer bottom-right
-        ctx.closePath();
-        ctx.fill();
+        ctx.fillRect(0, inner.b - 1, w, h - inner.b + 1);
 
-        // === INNER EDGE HIGHLIGHTS (where walls meet the back) ===
-        ctx.strokeStyle = 'rgba(90, 60, 30, 0.5)';
-        ctx.lineWidth = 1.5;
+        // Floor board lines (converging toward back)
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        for (let px = beamW; px < w; px += beamW) {
+            const t = px / w;
+            ctx.beginPath();
+            ctx.moveTo(px, h);
+            ctx.lineTo(lerp(inner.l, inner.r, t), inner.b);
+            ctx.stroke();
+        }
+
+        // Horizontal grain across floor
+        for (let i = 0; i < 4; i++) {
+            const t = (i + 0.5) / 4;
+            const y = lerp(h, inner.b, t);
+            ctx.strokeStyle = `rgba(70, 45, 22, ${0.15 - t * 0.1})`;
+            ctx.beginPath();
+            ctx.moveTo(lerp(0, inner.l, t), y);
+            ctx.lineTo(lerp(w, inner.r, t), y);
+            ctx.stroke();
+        }
+
+        // Floor sheen (subtle highlight near opening)
+        grad = ctx.createLinearGradient(0, h, 0, h - 30);
+        grad.addColorStop(0, 'rgba(255, 200, 130, 0.06)');
+        grad.addColorStop(1, 'rgba(255, 200, 130, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, h - 30, w, 30);
+        ctx.restore();
+
+        // ============ INNER EDGE (where walls meet the back) ============
+        // Bright edge highlight — catches the "light" at the rim
+        ctx.strokeStyle = 'rgba(110, 75, 40, 0.6)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        // Inner rectangle outline
         ctx.moveTo(inner.l, inner.t);
         ctx.lineTo(inner.r, inner.t);
         ctx.lineTo(inner.r, inner.b);
@@ -1264,46 +1385,46 @@ class FruitNinjaGame {
         ctx.closePath();
         ctx.stroke();
 
-        // === CORNER DEPTH LINES (outer corners to inner corners) ===
-        ctx.strokeStyle = 'rgba(70, 45, 22, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, 0); ctx.lineTo(inner.l, inner.t);
-        ctx.moveTo(w, 0); ctx.lineTo(inner.r, inner.t);
-        ctx.moveTo(0, h); ctx.lineTo(inner.l, inner.b);
-        ctx.moveTo(w, h); ctx.lineTo(inner.r, inner.b);
-        ctx.stroke();
+        // ============ DEEP AMBIENT OCCLUSION ============
+        const ao = 40;
 
-        // === AMBIENT OCCLUSION (dark shadow along inner edges) ===
-        const aoSize = 25;
-
-        // Top inner shadow
-        grad = ctx.createLinearGradient(0, inner.t, 0, inner.t + aoSize);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+        // Top AO
+        grad = ctx.createLinearGradient(0, inner.t, 0, inner.t + ao);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
-        ctx.fillRect(inner.l, inner.t, inner.r - inner.l, aoSize);
+        ctx.fillRect(inner.l, inner.t, inner.r - inner.l, ao);
 
-        // Bottom inner shadow
-        grad = ctx.createLinearGradient(0, inner.b, 0, inner.b - aoSize);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+        // Bottom AO
+        grad = ctx.createLinearGradient(0, inner.b, 0, inner.b - ao);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.45)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
-        ctx.fillRect(inner.l, inner.b - aoSize, inner.r - inner.l, aoSize);
+        ctx.fillRect(inner.l, inner.b - ao, inner.r - inner.l, ao);
 
-        // Left inner shadow
-        grad = ctx.createLinearGradient(inner.l, 0, inner.l + aoSize, 0);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 0.35)');
+        // Left AO
+        grad = ctx.createLinearGradient(inner.l, 0, inner.l + ao, 0);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
-        ctx.fillRect(inner.l, inner.t, aoSize, inner.b - inner.t);
+        ctx.fillRect(inner.l, inner.t, ao, inner.b - inner.t);
 
-        // Right inner shadow
-        grad = ctx.createLinearGradient(inner.r, 0, inner.r - aoSize, 0);
-        grad.addColorStop(0, 'rgba(0, 0, 0, 0.35)');
+        // Right AO
+        grad = ctx.createLinearGradient(inner.r, 0, inner.r - ao, 0);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.fillStyle = grad;
-        ctx.fillRect(inner.r - aoSize, inner.t, aoSize, inner.b - inner.t);
+        ctx.fillRect(inner.r - ao, inner.t, ao, inner.b - inner.t);
+
+        // Corner AO (extra dark where two walls meet at the back)
+        const cao = 50;
+        [[inner.l, inner.t], [inner.r, inner.t], [inner.l, inner.b], [inner.r, inner.b]].forEach(([cx, cy]) => {
+            grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, cao);
+            grad.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx - cao, cy - cao, cao * 2, cao * 2);
+        });
     }
 
     drawCameraMonitor() {
