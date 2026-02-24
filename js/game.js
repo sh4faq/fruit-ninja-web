@@ -13,6 +13,19 @@ class FruitNinjaGame {
         this.camMonitor.width = 200;
         this.camMonitor.height = 150;
 
+        // Parallax background element
+        this.parallaxBg = document.getElementById('parallax-bg');
+
+        // 3D parallax settings
+        this.parallax = {
+            maxShift: 30,          // Max pixels the background shifts
+            bgMultiplier: 1.0,     // Background layer (slow)
+            midMultiplier: 0.5,    // Midground — fruits/bombs (medium, inverse)
+            fgMultiplier: 0.2,     // Foreground — effects (fast, inverse)
+            wallBase: 18,          // Base wall thickness in pixels
+            wallExpand: 25,        // How much walls expand when leaning
+        };
+
         // Screens
         this.loadingScreen = document.getElementById('loading');
         this.mainMenu = document.getElementById('main-menu');
@@ -1114,17 +1127,48 @@ class FruitNinjaGame {
     // ==================== DRAW ====================
     draw() {
         const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+        ctx.clearRect(0, 0, w, h);
 
-        // Chapter vignette (drawn first, behind everything)
+        // Get head offset for parallax (-1 to 1)
+        const hx = this.handTracker ? this.handTracker.headOffset.x : 0;
+        const hy = this.handTracker ? this.handTracker.headOffset.y : 0;
+        const p = this.parallax;
+
+        // === Layer 0: Move CSS background (slow, follows head) ===
+        if (this.parallaxBg) {
+            const bgX = hx * p.maxShift * p.bgMultiplier;
+            const bgY = hy * p.maxShift * p.bgMultiplier;
+            this.parallaxBg.style.transform = `translate(${bgX}px, ${bgY}px)`;
+        }
+
+        // === Box walls (drawn behind everything on canvas) ===
+        this.drawBoxWalls(ctx, w, h, hx, hy);
+
+        // Chapter vignette
         if (this.wave.enabled) {
             this.drawChapterVignette(ctx);
         }
+
+        // === Layer 1: Game objects (medium shift, opposite to head) ===
+        const midX = -hx * p.maxShift * p.midMultiplier;
+        const midY = -hy * p.maxShift * p.midMultiplier;
+        ctx.save();
+        ctx.translate(midX, midY);
 
         this.fruits.forEach(fruit => fruit.draw());
         this.halves.forEach(half => half.draw());
         this.bombs.forEach(bomb => bomb.draw());
         this.specialFruits.forEach(sf => sf.draw());
+
+        ctx.restore();
+
+        // === Layer 2: Effects + hand (slight shift) ===
+        const fgX = -hx * p.maxShift * p.fgMultiplier;
+        const fgY = -hy * p.maxShift * p.fgMultiplier;
+        ctx.save();
+        ctx.translate(fgX, fgY);
 
         this.effects.draw(ctx);
 
@@ -1132,8 +1176,90 @@ class FruitNinjaGame {
             this.handTracker.drawLandmarks(ctx);
         }
 
-        // Draw camera monitor (PiP) — video feed + hand skeleton
+        ctx.restore();
+
+        // Camera monitor (PiP) — no parallax, stays fixed
         this.drawCameraMonitor();
+    }
+
+    // ==================== 3D BOX WALLS ====================
+    drawBoxWalls(ctx, w, h, hx, hy) {
+        const p = this.parallax;
+        const base = p.wallBase;
+        const expand = p.wallExpand;
+
+        // Wall thicknesses — lean right = left wall expands, right shrinks
+        const leftW  = Math.max(4, base + hx * expand);
+        const rightW = Math.max(4, base - hx * expand);
+        const topH   = Math.max(4, base + hy * expand);
+        const botH   = Math.max(4, base - hy * expand);
+
+        // Wall color — dark wood tones
+        const wallDark = 'rgba(15, 10, 5, 0.95)';
+        const wallMid  = 'rgba(35, 22, 10, 0.85)';
+        const wallEdge = 'rgba(60, 38, 18, 0.6)';
+
+        // Left wall
+        let grad = ctx.createLinearGradient(0, 0, leftW, 0);
+        grad.addColorStop(0, wallDark);
+        grad.addColorStop(0.6, wallMid);
+        grad.addColorStop(1, wallEdge);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, leftW, h);
+
+        // Right wall
+        grad = ctx.createLinearGradient(w, 0, w - rightW, 0);
+        grad.addColorStop(0, wallDark);
+        grad.addColorStop(0.6, wallMid);
+        grad.addColorStop(1, wallEdge);
+        ctx.fillStyle = grad;
+        ctx.fillRect(w - rightW, 0, rightW, h);
+
+        // Top wall
+        grad = ctx.createLinearGradient(0, 0, 0, topH);
+        grad.addColorStop(0, wallDark);
+        grad.addColorStop(0.6, wallMid);
+        grad.addColorStop(1, wallEdge);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, topH);
+
+        // Bottom wall
+        grad = ctx.createLinearGradient(0, h, 0, h - botH);
+        grad.addColorStop(0, wallDark);
+        grad.addColorStop(0.6, wallMid);
+        grad.addColorStop(1, wallEdge);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, h - botH, w, botH);
+
+        // Corner shadows (adds depth at intersections)
+        const cornerSize = 60;
+        // Top-left
+        grad = ctx.createRadialGradient(0, 0, 0, 0, 0, cornerSize);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, cornerSize, cornerSize);
+
+        // Top-right
+        grad = ctx.createRadialGradient(w, 0, 0, w, 0, cornerSize);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(w - cornerSize, 0, cornerSize, cornerSize);
+
+        // Bottom-left
+        grad = ctx.createRadialGradient(0, h, 0, 0, h, cornerSize);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, h - cornerSize, cornerSize, cornerSize);
+
+        // Bottom-right
+        grad = ctx.createRadialGradient(w, h, 0, w, h, cornerSize);
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(w - cornerSize, h - cornerSize, cornerSize, cornerSize);
     }
 
     drawCameraMonitor() {

@@ -1,4 +1,5 @@
-// Hand tracking using MediaPipe Hands (GPU-accelerated via WebGL internally)
+// Hand tracking using MediaPipe Hands + Face Detection for 3D parallax
+// Both GPU-accelerated via WebGL internally
 
 class HandTracker {
     constructor(videoElement, onResultsCallback) {
@@ -38,11 +39,21 @@ class HandTracker {
         this.frameCount = 0;
         this.processEveryN = 1;
         this.isProcessing = false;
+
+        // ===== Face/Head tracking for 3D parallax =====
+        this.faceDetection = null;
+        this.faceDetectInterval = null;
+        this.isFaceProcessing = false;
+        // Head offset: -1 to 1 (0 = centered). Used by game for parallax.
+        this.headOffset = { x: 0, y: 0 };
+        // Heavy smoothing for head — should feel slow and cinematic
+        this.headSmoothing = 0.08;
     }
 
     async initialize() {
         return new Promise((resolve, reject) => {
             try {
+                // ===== Hand tracking setup =====
                 this.hands = new Hands({
                     locateFile: (file) => {
                         return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
@@ -51,9 +62,9 @@ class HandTracker {
 
                 this.hands.setOptions({
                     maxNumHands: 1,
-                    modelComplexity: 0,            // Lite model — ~2x faster than full
+                    modelComplexity: 0,
                     minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.3      // Lower = re-detects less often = faster
+                    minTrackingConfidence: 0.3
                 });
 
                 this.hands.onResults((results) => this.onResults(results));
@@ -66,7 +77,7 @@ class HandTracker {
                         try {
                             await this.hands.send({ image: this.video });
                         } catch (e) {
-                            // Silently handle send errors (can happen if tab is backgrounded)
+                            // Silently handle send errors
                         }
                         this.isProcessing = false;
                     },
@@ -78,6 +89,8 @@ class HandTracker {
                 this.camera.start()
                     .then(() => {
                         this.isReady = true;
+                        // Start face detection on a separate timer (doesn't block hands)
+                        this.initFaceDetection();
                         resolve();
                     })
                     .catch(reject);
@@ -86,6 +99,62 @@ class HandTracker {
                 reject(error);
             }
         });
+    }
+
+    // ===== Face detection for head parallax =====
+    initFaceDetection() {
+        try {
+            this.faceDetection = new FaceDetection({
+                locateFile: (file) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
+                }
+            });
+
+            this.faceDetection.setOptions({
+                model: 'short',          // Short-range model — faster, good for webcam distance
+                minDetectionConfidence: 0.5
+            });
+
+            this.faceDetection.onResults((results) => this.onFaceResults(results));
+
+            // Run face detection at ~6fps on its own timer (head moves slowly)
+            this.faceDetectInterval = setInterval(async () => {
+                if (this.isFaceProcessing || this.video.readyState < 2) return;
+                this.isFaceProcessing = true;
+                try {
+                    await this.faceDetection.send({ image: this.video });
+                } catch (e) {
+                    // Silently handle
+                }
+                this.isFaceProcessing = false;
+            }, 166);
+        } catch (e) {
+            console.warn('Face detection unavailable — parallax disabled', e);
+        }
+    }
+
+    onFaceResults(results) {
+        if (!results.detections || results.detections.length === 0) return;
+
+        const face = results.detections[0];
+        const bbox = face.boundingBox;
+
+        // Face center as normalized 0-1 (in camera space)
+        const faceCenterX = (bbox.xCenter !== undefined)
+            ? bbox.xCenter
+            : (bbox.originX + bbox.width / 2) / this.video.videoWidth;
+        const faceCenterY = (bbox.yCenter !== undefined)
+            ? bbox.yCenter
+            : (bbox.originY + bbox.height / 2) / this.video.videoHeight;
+
+        // Convert to -1 to 1 range (0 = centered)
+        // Mirror X so leaning right = positive offset
+        const rawX = -(faceCenterX - 0.5) * 2;
+        const rawY = -(faceCenterY - 0.5) * 2;
+
+        // Heavy smoothing — head parallax should feel slow and cinematic
+        this.headOffset.x += (rawX - this.headOffset.x) * this.headSmoothing;
+        this.headOffset.y += (rawY - this.headOffset.y) * this.headSmoothing;
     }
 
     onResults(results) {
@@ -130,10 +199,8 @@ class HandTracker {
                     z: tip.z
                 };
 
-                // Store raw (unsmoothed) position for accurate slice detection
                 this.rawFingerTips[f] = rawTip;
 
-                // Smoothed position for display/visuals
                 if (this.fingerTips[f]) {
                     this.fingerTips[f] = {
                         x: this.fingerTips[f].x + (rawTip.x - this.fingerTips[f].x) * this.smoothingFactor,
@@ -165,7 +232,6 @@ class HandTracker {
             }
         }
 
-        // Only send callback for real detections (not persisted ones)
         if (this.framesWithoutHands > 0) return;
 
         if (this.onResultsCallback) {
@@ -256,6 +322,9 @@ class HandTracker {
     stop() {
         if (this.camera) {
             this.camera.stop();
+        }
+        if (this.faceDetectInterval) {
+            clearInterval(this.faceDetectInterval);
         }
     }
 }

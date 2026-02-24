@@ -12,12 +12,26 @@ body {
     -webkit-user-select: none;
 }
 
-/* ========== GAME CONTAINER - DOJO BACKGROUND ========== */
+/* ========== GAME CONTAINER ========== */
 #game-container {
     position: relative;
     width: 100vw;
     height: 100vh;
     overflow: hidden;
+    background: #050302;
+}
+
+/* ========== PARALLAX BACKGROUND (moves with head) ========== */
+#parallax-bg {
+    position: absolute;
+    /* Oversized so it has room to shift without showing edges */
+    top: -40px; left: -40px;
+    width: calc(100% + 80px);
+    height: calc(100% + 80px);
+    z-index: 0;
+    pointer-events: none;
+    will-change: transform;
+    transition: transform 0.05s linear;
     background:
         radial-gradient(ellipse at 50% 120%, rgba(139, 69, 19, 0.15) 0%, transparent 70%),
         radial-gradient(ellipse at 50% 0%, rgba(30, 20, 10, 0.9) 0%, transparent 60%),
@@ -25,7 +39,7 @@ body {
     background-color: #0a0806;
 }
 
-#game-container::before {
+#parallax-bg::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -40,7 +54,6 @@ body {
             transparent 0px, transparent 200px,
             rgba(30, 18, 8, 0.2) 200px, rgba(30, 18, 8, 0.2) 202px
         );
-    z-index: 0;
     pointer-events: none;
 }
 

@@ -8,6 +8,9 @@
 </head>
 <body>
     <div id="game-container">
+        <!-- Parallax background layer (shifts slowly with head movement) -->
+        <div id="parallax-bg"></div>
+
         <!-- Webcam feed (hidden, used for tracking) -->
         <video id="webcam" autoplay playsinline></video>
 
@@ -231,11 +234,12 @@
         </div>
     </div>
 
-    <!-- MediaPipe Hands (uses GPU via WebGL internally — this IS GPU-accelerated) -->
+    <!-- MediaPipe (GPU-accelerated via WebGL) -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
 
     <!-- Game Scripts -->
     <script src="js/utils.js"></script>
