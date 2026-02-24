@@ -46,8 +46,8 @@ class HandTracker {
         this.isFaceProcessing = false;
         // Head offset: -1 to 1 (0 = centered). Used by game for parallax.
         this.headOffset = { x: 0, y: 0 };
-        // Heavy smoothing for head — should feel slow and cinematic
-        this.headSmoothing = 0.08;
+        // Smoothing for head — at ~6fps detection, 0.25 gives smooth but responsive feel
+        this.headSmoothing = 0.25;
     }
 
     async initialize() {
@@ -137,22 +137,29 @@ class HandTracker {
         if (!results.detections || results.detections.length === 0) return;
 
         const face = results.detections[0];
-        const bbox = face.boundingBox;
+        let centerX = 0.5, centerY = 0.5;
 
-        // Face center as normalized 0-1 (in camera space)
-        const faceCenterX = (bbox.xCenter !== undefined)
-            ? bbox.xCenter
-            : (bbox.originX + bbox.width / 2) / this.video.videoWidth;
-        const faceCenterY = (bbox.yCenter !== undefined)
-            ? bbox.yCenter
-            : (bbox.originY + bbox.height / 2) / this.video.videoHeight;
+        // Prefer nose-tip landmark (index 2) — more precise than bbox center
+        if (face.landmarks && face.landmarks.length > 2) {
+            const nose = face.landmarks[2];
+            centerX = (typeof nose.x === 'number') ? nose.x : (nose[0] ?? 0.5);
+            centerY = (typeof nose.y === 'number') ? nose.y : (nose[1] ?? 0.5);
+        }
+        // Fallback: bounding box center (handle all possible formats)
+        else if (face.boundingBox) {
+            const bb = face.boundingBox;
+            centerX = bb.xCenter ?? ((bb.xMin ?? bb.originX ?? 0) + (bb.width ?? 0) / 2);
+            centerY = bb.yCenter ?? ((bb.yMin ?? bb.originY ?? 0) + (bb.height ?? 0) / 2);
+        }
 
         // Convert to -1 to 1 range (0 = centered)
         // Mirror X so leaning right = positive offset
-        const rawX = -(faceCenterX - 0.5) * 2;
-        const rawY = -(faceCenterY - 0.5) * 2;
+        const rawX = -(centerX - 0.5) * 2;
+        const rawY = -(centerY - 0.5) * 2;
 
-        // Heavy smoothing — head parallax should feel slow and cinematic
+        // Store raw for PiP visualization
+        this._faceRaw = { x: centerX, y: centerY };
+
         this.headOffset.x += (rawX - this.headOffset.x) * this.headSmoothing;
         this.headOffset.y += (rawY - this.headOffset.y) * this.headSmoothing;
     }

@@ -18,12 +18,12 @@ class FruitNinjaGame {
 
         // 3D parallax settings
         this.parallax = {
-            maxShift: 30,          // Max pixels the background shifts
-            bgMultiplier: 1.0,     // Background layer (slow)
-            midMultiplier: 0.5,    // Midground — fruits/bombs (medium, inverse)
-            fgMultiplier: 0.2,     // Foreground — effects (fast, inverse)
-            wallBase: 18,          // Base wall thickness in pixels
-            wallExpand: 25,        // How much walls expand when leaning
+            maxShift: 50,          // Max pixels the background shifts
+            bgMultiplier: 1.0,     // Background layer (follows head)
+            midMultiplier: 0.5,    // Midground — fruits/bombs (opposite)
+            fgMultiplier: 0.15,    // Foreground — effects (slight opposite)
+            wallBase: 20,          // Base wall thickness in pixels
+            wallExpand: 45,        // How much walls expand when leaning
         };
 
         // Screens
@@ -1274,43 +1274,71 @@ class FruitNinjaGame {
         mc.drawImage(this.video, 0, 0, mw, mh);
         mc.restore();
 
+        if (!this.handTracker) return;
+
         // Draw hand skeleton overlay
-        if (!this.handTracker || !this.handTracker.allHandsLandmarks || this.handTracker.allHandsLandmarks.length === 0) return;
+        if (this.handTracker.allHandsLandmarks && this.handTracker.allHandsLandmarks.length > 0) {
+            const landmarks = this.handTracker.allHandsLandmarks[0];
+            const pts = [];
+            for (let i = 0; i < 21; i++) {
+                pts[i] = {
+                    x: (1 - landmarks[i].x) * mw,
+                    y: landmarks[i].y * mh
+                };
+            }
 
-        const landmarks = this.handTracker.allHandsLandmarks[0];
-        const pts = [];
-        for (let i = 0; i < 21; i++) {
-            pts[i] = {
-                x: (1 - landmarks[i].x) * mw,
-                y: landmarks[i].y * mh
-            };
-        }
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],
+                [0,5],[5,6],[6,7],[7,8],
+                [5,9],[9,10],[10,11],[11,12],
+                [9,13],[13,14],[14,15],[15,16],
+                [13,17],[17,18],[18,19],[19,20],
+                [0,17]
+            ];
 
-        // Connections
-        const connections = [
-            [0,1],[1,2],[2,3],[3,4],       // Thumb
-            [0,5],[5,6],[6,7],[7,8],       // Index
-            [5,9],[9,10],[10,11],[11,12],   // Middle
-            [9,13],[13,14],[14,15],[15,16], // Ring
-            [13,17],[17,18],[18,19],[19,20],// Pinky
-            [0,17]                          // Palm base
-        ];
-
-        mc.beginPath();
-        for (const [a, b] of connections) {
-            mc.moveTo(pts[a].x, pts[a].y);
-            mc.lineTo(pts[b].x, pts[b].y);
-        }
-        mc.strokeStyle = 'rgba(0, 255, 128, 0.7)';
-        mc.lineWidth = 1.5;
-        mc.stroke();
-
-        // Joints
-        for (let i = 0; i < 21; i++) {
             mc.beginPath();
-            mc.arc(pts[i].x, pts[i].y, 2.5, 0, Math.PI * 2);
-            mc.fillStyle = [4,8,12,16,20].includes(i) ? '#00ff80' : 'rgba(255,255,255,0.8)';
-            mc.fill();
+            for (const [a, b] of connections) {
+                mc.moveTo(pts[a].x, pts[a].y);
+                mc.lineTo(pts[b].x, pts[b].y);
+            }
+            mc.strokeStyle = 'rgba(0, 255, 128, 0.7)';
+            mc.lineWidth = 1.5;
+            mc.stroke();
+
+            for (let i = 0; i < 21; i++) {
+                mc.beginPath();
+                mc.arc(pts[i].x, pts[i].y, 2.5, 0, Math.PI * 2);
+                mc.fillStyle = [4,8,12,16,20].includes(i) ? '#00ff80' : 'rgba(255,255,255,0.8)';
+                mc.fill();
+            }
+        }
+
+        // Draw face tracking crosshair (shows head position for parallax)
+        const faceRaw = this.handTracker._faceRaw;
+        if (faceRaw) {
+            const fx = (1 - faceRaw.x) * mw;  // mirrored to match video
+            const fy = faceRaw.y * mh;
+            const r = 12;
+
+            mc.strokeStyle = 'rgba(255, 80, 80, 0.8)';
+            mc.lineWidth = 1.5;
+
+            // Crosshair circle
+            mc.beginPath();
+            mc.arc(fx, fy, r, 0, Math.PI * 2);
+            mc.stroke();
+
+            // Crosshair lines
+            mc.beginPath();
+            mc.moveTo(fx - r - 4, fy);
+            mc.lineTo(fx - r + 4, fy);
+            mc.moveTo(fx + r - 4, fy);
+            mc.lineTo(fx + r + 4, fy);
+            mc.moveTo(fx, fy - r - 4);
+            mc.lineTo(fx, fy - r + 4);
+            mc.moveTo(fx, fy + r - 4);
+            mc.lineTo(fx, fy + r + 4);
+            mc.stroke();
         }
     }
 
